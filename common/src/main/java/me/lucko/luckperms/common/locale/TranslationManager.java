@@ -122,13 +122,22 @@ public class TranslationManager {
      * Loads the base (English) translations from the jar file.
      */
     private void loadFromResourceBundle() {
-        ResourceBundle bundle = ResourceBundle.getBundle("luckperms", DEFAULT_LOCALE, UTF8ResourceBundleControl.get());
+        ResourceBundle bundle = getResourceBundle();
         try {
             this.registry.registerAll(DEFAULT_LOCALE, bundle, false);
         } catch (IllegalArgumentException e) {
             if (!isAdventureDuplicatesException(e)) {
                 this.plugin.getLogger().warn("Error loading default locale file", e);
             }
+        }
+    }
+
+    private ResourceBundle getResourceBundle() {
+        try {
+            return ResourceBundle.getBundle("luckperms", DEFAULT_LOCALE, UTF8ResourceBundleControl.get());
+        } catch (UnsupportedOperationException ex) {
+            // ResourceBundle.Control not supported in named modules
+            return ResourceBundle.getBundle("luckperms", DEFAULT_LOCALE);
         }
     }
 
