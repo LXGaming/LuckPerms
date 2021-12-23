@@ -47,6 +47,10 @@ public abstract class AbstractJavaScheduler implements SchedulerAdapter {
     private final ForkJoinPool worker;
 
     public AbstractJavaScheduler() {
+        this(ForkJoinPool.defaultForkJoinWorkerThreadFactory);
+    }
+
+    protected AbstractJavaScheduler(ForkJoinPool.ForkJoinWorkerThreadFactory factory) {
         this.scheduler = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
                 .setDaemon(true)
                 .setNameFormat("luckperms-scheduler")
@@ -58,7 +62,7 @@ public abstract class AbstractJavaScheduler implements SchedulerAdapter {
                 .setNameFormat("luckperms-scheduler-worker-%d")
                 .build()
         ));
-        this.worker = new ForkJoinPool(32, ForkJoinPool.defaultForkJoinWorkerThreadFactory, (t, e) -> e.printStackTrace(), false);
+        this.worker = new ForkJoinPool(32, factory, (t, e) -> e.printStackTrace(), false);
     }
 
     @Override
