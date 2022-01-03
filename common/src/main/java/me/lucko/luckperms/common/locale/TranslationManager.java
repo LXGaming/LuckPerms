@@ -137,6 +137,7 @@ public class TranslationManager {
             return ResourceBundle.getBundle("luckperms", DEFAULT_LOCALE, UTF8ResourceBundleControl.get());
         } catch (UnsupportedOperationException ex) {
             // ResourceBundle.Control not supported in named modules
+            // https://docs.oracle.com/javase/9/docs/api/java/util/ResourceBundle.Control.html#note
             return ResourceBundle.getBundle("luckperms", DEFAULT_LOCALE);
         }
     }
