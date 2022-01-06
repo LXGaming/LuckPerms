@@ -26,20 +26,20 @@
 package me.lucko.luckperms.forge.event;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.network.Connection;
+import net.minecraft.network.NetworkManager;
 import net.minecraftforge.eventbus.api.Event;
 
 public abstract class ConnectionEvent extends Event {
 
-    private final Connection connection;
+    private final NetworkManager connection;
     private final GameProfile profile;
 
-    public ConnectionEvent(Connection connection, GameProfile profile) {
+    public ConnectionEvent(NetworkManager connection, GameProfile profile) {
         this.connection = connection;
         this.profile = profile;
     }
 
-    public Connection getConnection() {
+    public NetworkManager getConnection() {
         return connection;
     }
 
@@ -49,14 +49,14 @@ public abstract class ConnectionEvent extends Event {
 
     public static class Auth extends ConnectionEvent {
 
-        public Auth(Connection connection, GameProfile profile) {
+        public Auth(NetworkManager connection, GameProfile profile) {
             super(connection, profile);
         }
     }
 
     public static class Disconnect extends ConnectionEvent {
 
-        public Disconnect(Connection connection, GameProfile profile) {
+        public Disconnect(NetworkManager connection, GameProfile profile) {
             super(connection, profile);
         }
     }

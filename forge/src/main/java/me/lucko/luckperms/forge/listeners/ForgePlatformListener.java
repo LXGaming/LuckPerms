@@ -38,19 +38,14 @@ import me.lucko.luckperms.common.locale.Message;
 import me.lucko.luckperms.forge.LPForgePlugin;
 import me.lucko.luckperms.forge.event.SuggestCommandsEvent;
 import me.lucko.luckperms.forge.model.ForgeUser;
-import me.lucko.luckperms.forge.service.ForgePermissionHandler;
 import net.luckperms.api.util.Tristate;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.ServerOpList;
-import net.minecraftforge.common.ForgeConfig;
-import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraft.command.CommandSource;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.server.management.OpList;
 import net.minecraftforge.event.CommandEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.server.permission.events.PermissionGatherEvent;
-import net.minecraftforge.server.permission.handler.DefaultPermissionHandler;
+import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -59,7 +54,7 @@ import java.util.Map;
 
 public class ForgePlatformListener {
     private final LPForgePlugin plugin;
-    private final Map<CommandNode<CommandSourceStack>, String> permissions;
+    private final Map<CommandNode<CommandSource>, String> permissions;
 
     public ForgePlatformListener(LPForgePlugin plugin) {
         this.plugin = plugin;
@@ -74,11 +69,11 @@ public class ForgePlatformListener {
 
     @SubscribeEvent
     public void onCommand(CommandEvent event) {
-        CommandContextBuilder<CommandSourceStack> context = event.getParseResults().getContext();
-        CommandSourceStack source = context.getSource();
+        CommandContextBuilder<CommandSource> context = event.getParseResults().getContext();
+        CommandSource source = context.getSource();
 
         if (!this.plugin.getConfiguration().get(ConfigKeys.OPS_ENABLED)) {
-            for (ParsedCommandNode<CommandSourceStack> node : context.getNodes()) {
+            for (ParsedCommandNode<CommandSource> node : context.getNodes()) {
                 if (!(node.getNode() instanceof LiteralCommandNode)) {
                     continue;
                 }
@@ -92,7 +87,7 @@ public class ForgePlatformListener {
             }
         }
 
-        if (!(source.getEntity() instanceof ServerPlayer)) {
+        if (!(source.getEntity() instanceof ServerPlayerEntity)) {
             return;
         }
 
@@ -101,8 +96,8 @@ public class ForgePlatformListener {
             stringReader.skip();
         }
 
-        ParseResults<CommandSourceStack> parseResults = context.getDispatcher().parse(stringReader, source.withPermission(4));
-        for (ParsedCommandNode<CommandSourceStack> parsedNode : parseResults.getContext().getNodes()) {
+        ParseResults<CommandSource> parseResults = context.getDispatcher().parse(stringReader, source.withPermission(4));
+        for (ParsedCommandNode<CommandSource> parsedNode : parseResults.getContext().getNodes()) {
             if (hasPermission(source, parsedNode.getNode())) {
                 continue;
             }
@@ -116,30 +111,19 @@ public class ForgePlatformListener {
 
     @SubscribeEvent
     public void onSuggestCommands(SuggestCommandsEvent event) {
-        if (!(event.getSource().getEntity() instanceof ServerPlayer)) {
+        if (!(event.getSource().getEntity() instanceof ServerPlayerEntity)) {
             return;
         }
 
-        RootCommandNode<CommandSourceStack> node = new RootCommandNode<>();
+        RootCommandNode<CommandSource> node = new RootCommandNode<>();
         filterCommands(event.getSource(), event.getNode(), node);
         event.setNode(node);
     }
 
     @SubscribeEvent
-    public void onPermissionGatherHandler(PermissionGatherEvent.Handler event) {
-        ForgeConfigSpec.ConfigValue<String> permissionHandler = ForgeConfig.SERVER.permissionHandler;
-        if (permissionHandler.get().equals(DefaultPermissionHandler.IDENTIFIER.toString())) {
-            // Override the default permission handler with LuckPerms
-            permissionHandler.set(ForgePermissionHandler.IDENTIFIER.toString());
-        }
-
-        event.addPermissionHandler(ForgePermissionHandler.IDENTIFIER, permissions -> new ForgePermissionHandler(this.plugin, permissions));
-    }
-
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
+    public void onServerStarting(FMLServerStartingEvent event) {
         if (!this.plugin.getConfiguration().get(ConfigKeys.OPS_ENABLED)) {
-            ServerOpList ops = event.getServer().getPlayerList().getOps();
+            OpList ops = event.getServer().getPlayerList().getOps();
             ops.getEntries().clear();
             try {
                 ops.save();
@@ -149,13 +133,13 @@ public class ForgePlatformListener {
         }
     }
 
-    private void filterCommands(CommandSourceStack source, CommandNode<CommandSourceStack> fromNode, CommandNode<CommandSourceStack> toNode) {
-        for (CommandNode<CommandSourceStack> fromChildNode : fromNode.getChildren()) {
+    private void filterCommands(CommandSource source, CommandNode<CommandSource> fromNode, CommandNode<CommandSource> toNode) {
+        for (CommandNode<CommandSource> fromChildNode : fromNode.getChildren()) {
             if (!hasPermission(source, fromChildNode)) {
                 continue;
             }
 
-            CommandNode<CommandSourceStack> toChildNode = fromChildNode.createBuilder().build();
+            CommandNode<CommandSource> toChildNode = fromChildNode.createBuilder().build();
             toNode.addChild(toChildNode);
 
             if (!fromChildNode.getChildren().isEmpty()) {
@@ -164,12 +148,12 @@ public class ForgePlatformListener {
         }
     }
 
-    private boolean hasPermission(CommandSourceStack source, CommandNode<CommandSourceStack> node) {
-        if (!(source.getEntity() instanceof ServerPlayer)) {
+    private boolean hasPermission(CommandSource source, CommandNode<CommandSource> node) {
+        if (!(source.getEntity() instanceof ServerPlayerEntity)) {
             return node.canUse(source);
         }
 
-        ServerPlayer player = (ServerPlayer) source.getEntity();
+        ServerPlayerEntity player = (ServerPlayerEntity) source.getEntity();
         String permission = this.permissions.get(node);
         if (permission != null) {
             ForgeUser user = this.plugin.getContextManager().getUser(player);

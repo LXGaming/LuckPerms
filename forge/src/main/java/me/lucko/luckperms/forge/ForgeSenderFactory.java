@@ -36,39 +36,39 @@ import me.lucko.luckperms.forge.model.ForgeUser;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.luckperms.api.util.Tristate;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.command.CommandSource;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.Locale;
 import java.util.UUID;
 
-public class ForgeSenderFactory extends SenderFactory<LPForgePlugin, CommandSourceStack> {
+public class ForgeSenderFactory extends SenderFactory<LPForgePlugin, CommandSource> {
     public ForgeSenderFactory(LPForgePlugin plugin) {
         super(plugin);
     }
 
     @Override
-    protected UUID getUniqueId(CommandSourceStack commandSource) {
-        if (commandSource.getEntity() instanceof Player) {
+    protected UUID getUniqueId(CommandSource commandSource) {
+        if (commandSource.getEntity() instanceof PlayerEntity) {
             return commandSource.getEntity().getUUID();
         }
         return Sender.CONSOLE_UUID;
     }
 
     @Override
-    protected String getName(CommandSourceStack commandSource) {
-        if (commandSource.getEntity() instanceof Player) {
+    protected String getName(CommandSource commandSource) {
+        if (commandSource.getEntity() instanceof PlayerEntity) {
             return commandSource.getTextName();
         }
         return Sender.CONSOLE_NAME;
     }
 
     @Override
-    protected void sendMessage(CommandSourceStack sender, Component message) {
+    protected void sendMessage(CommandSource sender, Component message) {
         Locale locale;
-        if (sender.getEntity() instanceof ServerPlayer) {
-            ServerPlayer player = (ServerPlayer) sender.getEntity();
+        if (sender.getEntity() instanceof ServerPlayerEntity) {
+            ServerPlayerEntity player = (ServerPlayerEntity) sender.getEntity();
             ForgeUser user = getPlugin().getContextManager().getUser(player);
             locale = user.getLocale(player);
         } else {
@@ -79,9 +79,9 @@ public class ForgeSenderFactory extends SenderFactory<LPForgePlugin, CommandSour
     }
 
     @Override
-    protected Tristate getPermissionValue(CommandSourceStack commandSource, String node) {
-        if (commandSource.getEntity() instanceof ServerPlayer) {
-            ServerPlayer player = (ServerPlayer) commandSource.getEntity();
+    protected Tristate getPermissionValue(CommandSource commandSource, String node) {
+        if (commandSource.getEntity() instanceof ServerPlayerEntity) {
+            ServerPlayerEntity player = (ServerPlayerEntity) commandSource.getEntity();
             ForgeUser user = getPlugin().getContextManager().getUser(player);
             return user.checkPermission(node);
         }
@@ -93,22 +93,22 @@ public class ForgeSenderFactory extends SenderFactory<LPForgePlugin, CommandSour
     }
 
     @Override
-    protected boolean hasPermission(CommandSourceStack commandSource, String node) {
+    protected boolean hasPermission(CommandSource commandSource, String node) {
         return getPermissionValue(commandSource, node).asBoolean();
     }
 
     @Override
-    protected void performCommand(CommandSourceStack sender, String command) {
+    protected void performCommand(CommandSource sender, String command) {
         sender.getServer().getCommands().performCommand(sender, command);
     }
 
     @Override
-    protected boolean isConsole(CommandSourceStack sender) {
-        return !(sender.getEntity() instanceof Player);
+    protected boolean isConsole(CommandSource sender) {
+        return !(sender.getEntity() instanceof ServerPlayerEntity);
     }
 
-    public static net.minecraft.network.chat.Component toNativeText(Component component) {
-        return net.minecraft.network.chat.Component.Serializer.fromJson(GsonComponentSerializer.gson().serialize(component));
+    public static net.minecraft.util.text.ITextComponent toNativeText(Component component) {
+        return net.minecraft.util.text.ITextComponent.Serializer.fromJson(GsonComponentSerializer.gson().serialize(component));
     }
 
 }

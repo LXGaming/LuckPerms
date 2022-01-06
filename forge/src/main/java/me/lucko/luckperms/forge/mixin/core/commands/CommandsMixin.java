@@ -28,9 +28,9 @@ package me.lucko.luckperms.forge.mixin.core.commands;
 import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.RootCommandNode;
 import me.lucko.luckperms.forge.event.SuggestCommandsEvent;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.command.CommandSource;
+import net.minecraft.command.Commands;
+import net.minecraft.command.ISuggestionProvider;
 import net.minecraftforge.common.MinecraftForge;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -46,17 +46,17 @@ import java.util.Map;
 public abstract class CommandsMixin {
 
     @Shadow
-    protected abstract void fillUsableCommands(CommandNode<CommandSourceStack> p_82113_, CommandNode<SharedSuggestionProvider> p_82114_, CommandSourceStack p_82115_, Map<CommandNode<CommandSourceStack>, CommandNode<SharedSuggestionProvider>> p_82116_);
+    protected abstract void fillUsableCommands(CommandNode<CommandSource> p_197052_1_, CommandNode<ISuggestionProvider> p_197052_2_, CommandSource p_197052_3_, Map<CommandNode<CommandSource>, CommandNode<ISuggestionProvider>> p_197052_4_);
 
     @Redirect(
             method = "sendCommands",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/commands/Commands;fillUsableCommands(Lcom/mojang/brigadier/tree/CommandNode;Lcom/mojang/brigadier/tree/CommandNode;Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Map;)V"
+                    target = "Lnet/minecraft/command/Commands;fillUsableCommands(Lcom/mojang/brigadier/tree/CommandNode;Lcom/mojang/brigadier/tree/CommandNode;Lnet/minecraft/command/CommandSource;Ljava/util/Map;)V"
             )
     )
-    private void onFillUsableCommands(Commands commands, CommandNode<CommandSourceStack> commandNode, CommandNode<SharedSuggestionProvider> suggestionNode, CommandSourceStack source, Map<CommandNode<CommandSourceStack>, CommandNode<SharedSuggestionProvider>> map) {
-        SuggestCommandsEvent event = new SuggestCommandsEvent(source, (RootCommandNode<CommandSourceStack>) commandNode);
+    private void onFillUsableCommands(Commands commands, CommandNode<CommandSource> commandNode, CommandNode<ISuggestionProvider> suggestionNode, CommandSource source, Map<CommandNode<CommandSource>, CommandNode<ISuggestionProvider>> map) {
+        SuggestCommandsEvent event = new SuggestCommandsEvent(source, (RootCommandNode<CommandSource>) commandNode);
         MinecraftForge.EVENT_BUS.post(event);
 
         // This map will be populated with the original root node, so we must clear it

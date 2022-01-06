@@ -33,7 +33,7 @@ import me.lucko.luckperms.common.model.User;
 import me.lucko.luckperms.common.verbose.event.CheckOrigin;
 import net.luckperms.api.query.QueryOptions;
 import net.luckperms.api.util.Tristate;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.Locale;
 import java.util.function.Function;
@@ -41,11 +41,11 @@ import java.util.function.Function;
 public class ForgeUser {
 
     private final User user;
-    private final QueryOptionsCache<ServerPlayer> queryOptionsCache;
+    private final QueryOptionsCache<ServerPlayerEntity> queryOptionsCache;
     private String language;
     private Locale locale;
 
-    public ForgeUser(User user, QueryOptionsCache<ServerPlayer> queryOptionsCache) {
+    public ForgeUser(User user, QueryOptionsCache<ServerPlayerEntity> queryOptionsCache) {
         this.user = user;
         this.queryOptionsCache = queryOptionsCache;
     }
@@ -112,11 +112,11 @@ public class ForgeUser {
         return this.user;
     }
 
-    public QueryOptionsCache<ServerPlayer> getQueryOptionsCache() {
+    public QueryOptionsCache<ServerPlayerEntity> getQueryOptionsCache() {
         return this.queryOptionsCache;
     }
 
-    public Locale getLocale(ServerPlayer player) {
+    public Locale getLocale(ServerPlayerEntity player) {
         if (this.language == null || !this.language.equals(player.getLanguage())) {
             this.language = player.getLanguage();
             this.locale = TranslationManager.parseLocale(this.language);

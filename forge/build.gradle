@@ -19,7 +19,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'org.spongepowered.mixin'
 
 sourceCompatibility = 1.8
-targetCompatibility = 17
+targetCompatibility = 1.8
 
 blossom {
     replaceTokenIn 'src/main/java/me/lucko/luckperms/forge/LPForgeBootstrap.java'
@@ -27,7 +27,7 @@ blossom {
 }
 
 minecraft {
-    mappings channel: 'official', version: '1.18.1'
+    mappings channel: 'official', version: '1.16.5'
 }
 
 mixin {
@@ -43,8 +43,9 @@ repositories {
 
 dependencies {
     implementation project(':common')
-    minecraft 'net.minecraftforge:forge:1.18.1-39.0.9'
+    minecraft 'net.minecraftforge:forge:1.16.5-36.2.22'
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    compileOnly 'org.spongepowered:mixin:0.8.5'
 }
 
 jar {

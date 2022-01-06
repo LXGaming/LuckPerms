@@ -34,29 +34,29 @@ import me.lucko.luckperms.forge.model.ForgeUser;
 import net.luckperms.api.context.ImmutableContextSet;
 import net.luckperms.api.query.OptionKey;
 import net.luckperms.api.query.QueryOptions;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.ServerPlayerEntity;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class ForgeContextManager extends ContextManager<ServerPlayer, ServerPlayer> {
+public class ForgeContextManager extends ContextManager<ServerPlayerEntity, ServerPlayerEntity> {
     public static final OptionKey<Boolean> INTEGRATED_SERVER_OWNER = OptionKey.of("integrated_server_owner", Boolean.class);
 
     private final Map<UUID, ForgeUser> users;
 
     public ForgeContextManager(LPForgePlugin plugin) {
-        super(plugin, ServerPlayer.class, ServerPlayer.class);
+        super(plugin, ServerPlayerEntity.class, ServerPlayerEntity.class);
         this.users = new HashMap<>();
     }
 
     @Override
-    public UUID getUniqueId(ServerPlayer player) {
+    public UUID getUniqueId(ServerPlayerEntity player) {
         return player.getUUID();
     }
 
     @Override
-    public QueryOptionsCache<ServerPlayer> getCacheFor(ServerPlayer subject) {
+    public QueryOptionsCache<ServerPlayerEntity> getCacheFor(ServerPlayerEntity subject) {
         if (subject == null) {
             throw new NullPointerException("subject");
         }
@@ -65,7 +65,7 @@ public class ForgeContextManager extends ContextManager<ServerPlayer, ServerPlay
     }
 
     @Override
-    public QueryOptions formQueryOptions(ServerPlayer subject, ImmutableContextSet contextSet) {
+    public QueryOptions formQueryOptions(ServerPlayerEntity subject, ImmutableContextSet contextSet) {
         QueryOptions.Builder builder = this.plugin.getConfiguration().get(ConfigKeys.GLOBAL_QUERY_OPTIONS).toBuilder();
         if (subject.getServer() != null && subject.getServer().isSingleplayerOwner(subject.getGameProfile())) {
             builder.option(INTEGRATED_SERVER_OWNER, true);
@@ -75,24 +75,24 @@ public class ForgeContextManager extends ContextManager<ServerPlayer, ServerPlay
     }
 
     @Override
-    public void invalidateCache(ServerPlayer subject) {
+    public void invalidateCache(ServerPlayerEntity subject) {
         ForgeUser user = this.users.get(subject.getUUID());
         if (user != null) {
             user.getQueryOptionsCache().invalidate();
         }
     }
 
-    public void register(ServerPlayer player) {
+    public void register(ServerPlayerEntity player) {
         User user = this.plugin.getUserManager().getIfLoaded(player.getUUID());
         this.users.put(player.getUUID(), new ForgeUser(user, new QueryOptionsCache<>(player, this)));
         signalContextUpdate(player);
     }
 
-    public void unregister(ServerPlayer player) {
+    public void unregister(ServerPlayerEntity player) {
         this.users.remove(player.getUUID());
     }
 
-    public ForgeUser getUser(ServerPlayer player) {
+    public ForgeUser getUser(ServerPlayerEntity player) {
         ForgeUser user = this.users.get(player.getUUID());
         if (user == null) {
             throw new IllegalStateException("User " + player.getUUID() + " is not registered");

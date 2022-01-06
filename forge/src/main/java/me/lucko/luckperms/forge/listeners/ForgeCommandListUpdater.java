@@ -35,14 +35,14 @@ import net.luckperms.api.event.EventBus;
 import net.luckperms.api.event.context.ContextUpdateEvent;
 import net.luckperms.api.event.group.GroupDataRecalculateEvent;
 import net.luckperms.api.event.user.UserDataRecalculateEvent;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Calls {@link net.minecraft.server.players.PlayerList#sendPlayerPermissionLevel(ServerPlayer)} when a players permissions change.
+ * Calls {@link net.minecraft.server.management.PlayerList#sendPlayerPermissionLevel(ServerPlayerEntity)} when a players permissions change.
  */
 public class ForgeCommandListUpdater implements LuckPermsEventListener {
     private final LPForgePlugin plugin;
@@ -74,7 +74,7 @@ public class ForgeCommandListUpdater implements LuckPermsEventListener {
     }
 
     private void onContextUpdate(ContextUpdateEvent e) {
-        e.getSubject(ServerPlayer.class).ifPresent(p -> requestUpdate(p.getUUID()));
+        e.getSubject(ServerPlayerEntity.class).ifPresent(p -> requestUpdate(p.getUUID()));
     }
 
     private void requestUpdate(UUID uniqueId) {

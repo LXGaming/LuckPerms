@@ -36,15 +36,15 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import me.lucko.luckperms.common.command.CommandManager;
 import me.lucko.luckperms.common.command.utils.ArgumentTokenizer;
 import me.lucko.luckperms.common.sender.Sender;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
+import net.minecraft.command.CommandSource;
+import net.minecraft.command.Commands;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class ForgeCommandExecutor extends CommandManager implements Command<CommandSourceStack>, SuggestionProvider<CommandSourceStack> {
+public class ForgeCommandExecutor extends CommandManager implements Command<CommandSource>, SuggestionProvider<CommandSource> {
     private static final String[] COMMAND_ALIASES = new String[]{"luckperms", "lp", "perm", "perms", "permission", "permissions"};
 
     private final LPForgePlugin plugin;
@@ -57,8 +57,8 @@ public class ForgeCommandExecutor extends CommandManager implements Command<Comm
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         for (String alias : COMMAND_ALIASES) {
-            LiteralCommandNode<CommandSourceStack> command = Commands.literal(alias).executes(this).build();
-            ArgumentCommandNode<CommandSourceStack, String> argument = Commands.argument("args", StringArgumentType.greedyString())
+            LiteralCommandNode<CommandSource> command = Commands.literal(alias).executes(this).build();
+            ArgumentCommandNode<CommandSource, String> argument = Commands.argument("args", StringArgumentType.greedyString())
                     .suggests(this)
                     .executes(this)
                     .build();
@@ -69,7 +69,7 @@ public class ForgeCommandExecutor extends CommandManager implements Command<Comm
     }
 
     @Override
-    public int run(CommandContext<CommandSourceStack> ctx) {
+    public int run(CommandContext<CommandSource> ctx) {
         Sender wrapped = this.plugin.getSenderFactory().wrap(ctx.getSource());
 
         int start = ctx.getRange().getStart();
@@ -85,7 +85,7 @@ public class ForgeCommandExecutor extends CommandManager implements Command<Comm
     }
 
     @Override
-    public CompletableFuture<Suggestions> getSuggestions(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+    public CompletableFuture<Suggestions> getSuggestions(CommandContext<CommandSource> ctx, SuggestionsBuilder builder) {
         Sender wrapped = this.plugin.getSenderFactory().wrap(ctx.getSource());
 
         int idx = builder.getStart();

@@ -33,15 +33,15 @@ import me.lucko.luckperms.forge.LPForgePlugin;
 import net.luckperms.api.messenger.IncomingMessageConsumer;
 import net.luckperms.api.messenger.Messenger;
 import net.luckperms.api.messenger.message.OutgoingMessage;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.network.IPacket;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.network.play.client.CCustomPayloadPacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.PlayerList;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.event.EventNetworkChannel;
+import net.minecraft.server.management.PlayerList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.network.NetworkRegistry;
+import net.minecraftforge.fml.network.event.EventNetworkChannel;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.concurrent.TimeUnit;
@@ -72,7 +72,7 @@ public class PluginMessageMessenger implements Messenger {
     public void sendOutgoingMessage(@NonNull OutgoingMessage outgoingMessage) {
         AtomicReference<SchedulerTask> taskRef = new AtomicReference<>();
         SchedulerTask task = this.plugin.getBootstrap().getScheduler().asyncRepeating(() -> {
-            ServerPlayer player = this.plugin.getBootstrap().getServer()
+            ServerPlayerEntity player = this.plugin.getBootstrap().getServer()
                     .map(MinecraftServer::getPlayerList)
                     .map(PlayerList::getPlayers)
                     .map(players -> Iterables.getFirst(players, null))
@@ -81,9 +81,9 @@ public class PluginMessageMessenger implements Messenger {
                 return;
             }
 
-            FriendlyByteBuf byteBuf = new FriendlyByteBuf(Unpooled.buffer());
+            PacketBuffer byteBuf = new PacketBuffer(Unpooled.buffer());
             byteBuf.writeUtf(outgoingMessage.asEncodedString());
-            Packet<?> packet = new ClientboundCustomPayloadPacket(CHANNEL, byteBuf);
+            IPacket<?> packet = new CCustomPayloadPacket(CHANNEL, byteBuf);
 
             player.connection.send(packet);
 

@@ -27,8 +27,8 @@ package me.lucko.luckperms.forge.mixin.core.server.network;
 
 import com.mojang.authlib.GameProfile;
 import me.lucko.luckperms.forge.event.ConnectionEvent;
-import net.minecraft.network.Connection;
-import net.minecraft.server.network.ServerLoginPacketListenerImpl;
+import net.minecraft.network.NetworkManager;
+import net.minecraft.network.login.ServerLoginNetHandler;
 import net.minecraftforge.common.MinecraftForge;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -40,14 +40,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import javax.annotation.Nullable;
 
 /**
- * Mixin into {@link ServerLoginPacketListenerImpl} for posting {@link ConnectionEvent}
+ * Mixin into {@link ServerLoginNetHandler} for posting {@link ConnectionEvent}
  */
-@Mixin(value = ServerLoginPacketListenerImpl.class)
+@Mixin(value = ServerLoginNetHandler.class)
 public abstract class ServerLoginPacketListenerImplMixin {
 
     @Shadow
     @Final
-    public Connection connection;
+    public NetworkManager connection;
 
     @Shadow
     @Nullable
@@ -62,7 +62,7 @@ public abstract class ServerLoginPacketListenerImplMixin {
             method = "tick",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraftforge/network/NetworkHooks;tickNegotiation(Lnet/minecraft/server/network/ServerLoginPacketListenerImpl;Lnet/minecraft/network/Connection;Lnet/minecraft/server/level/ServerPlayer;)Z",
+                    target = "Lnet/minecraftforge/fml/network/NetworkHooks;tickNegotiation(Lnet/minecraft/network/login/ServerLoginNetHandler;Lnet/minecraft/network/NetworkManager;Lnet/minecraft/entity/player/ServerPlayerEntity;)Z",
                     remap = false
             )
     )

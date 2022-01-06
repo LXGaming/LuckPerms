@@ -26,28 +26,28 @@
 package me.lucko.luckperms.forge.event;
 
 import com.mojang.brigadier.tree.RootCommandNode;
-import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.command.CommandSource;
 import net.minecraftforge.eventbus.api.Event;
 
 public class SuggestCommandsEvent extends Event {
 
-    private final CommandSourceStack source;
-    private RootCommandNode<CommandSourceStack> node;
+    private final CommandSource source;
+    private RootCommandNode<CommandSource> node;
 
-    public SuggestCommandsEvent(CommandSourceStack source, RootCommandNode<CommandSourceStack> node) {
+    public SuggestCommandsEvent(CommandSource source, RootCommandNode<CommandSource> node) {
         this.source = source;
         this.node = node;
     }
 
-    public CommandSourceStack getSource() {
+    public CommandSource getSource() {
         return source;
     }
 
-    public RootCommandNode<CommandSourceStack> getNode() {
+    public RootCommandNode<CommandSource> getNode() {
         return node;
     }
 
-    public void setNode(RootCommandNode<CommandSourceStack> node) {
+    public void setNode(RootCommandNode<CommandSource> node) {
         this.node = node;
     }
 

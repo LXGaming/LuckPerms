@@ -32,18 +32,18 @@ import me.lucko.luckperms.common.plugin.logging.Log4jPluginLogger;
 import me.lucko.luckperms.common.plugin.logging.PluginLogger;
 import me.lucko.luckperms.common.plugin.scheduler.SchedulerAdapter;
 import net.luckperms.api.platform.Platform;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.PlayerList;
+import net.minecraft.server.management.PlayerList;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.server.FMLServerAboutToStartEvent;
+import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.forgespi.language.IModInfo;
@@ -146,12 +146,12 @@ public final class LPForgeBootstrap implements LuckPermsBootstrap {
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void onServerAboutToStart(ServerAboutToStartEvent event) {
+    public void onServerAboutToStart(FMLServerAboutToStartEvent event) {
         this.server = event.getServer();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public void onServerStopping(ServerStoppingEvent event) {
+    public void onServerStopping(FMLServerStoppingEvent event) {
         this.plugin.disable();
         this.server = null;
     }
@@ -216,18 +216,18 @@ public final class LPForgeBootstrap implements LuckPermsBootstrap {
     }
 
     @Override
-    public Optional<ServerPlayer> getPlayer(UUID uniqueId) {
+    public Optional<ServerPlayerEntity> getPlayer(UUID uniqueId) {
         return getServer().map(MinecraftServer::getPlayerList).map(playerList -> playerList.getPlayer(uniqueId));
     }
 
     @Override
     public Optional<UUID> lookupUniqueId(String username) {
-        return getServer().map(MinecraftServer::getProfileCache).flatMap(profileCache -> profileCache.get(username)).map(GameProfile::getId);
+        return getServer().map(MinecraftServer::getProfileCache).map(profileCache -> profileCache.get(username)).map(GameProfile::getId);
     }
 
     @Override
     public Optional<String> lookupUsername(UUID uniqueId) {
-        return getServer().map(MinecraftServer::getProfileCache).flatMap(profileCache -> profileCache.get(uniqueId)).map(GameProfile::getName);
+        return getServer().map(MinecraftServer::getProfileCache).map(profileCache -> profileCache.get(uniqueId)).map(GameProfile::getName);
     }
 
     @Override
@@ -239,7 +239,7 @@ public final class LPForgeBootstrap implements LuckPermsBootstrap {
     public Collection<String> getPlayerList() {
         return getServer().map(MinecraftServer::getPlayerList).map(PlayerList::getPlayers).map(players -> {
             List<String> list = new ArrayList<>(players.size());
-            for (ServerPlayer player : players) {
+            for (ServerPlayerEntity player : players) {
                 list.add(player.getGameProfile().getName());
             }
             return list;
@@ -250,7 +250,7 @@ public final class LPForgeBootstrap implements LuckPermsBootstrap {
     public Collection<UUID> getOnlinePlayers() {
         return getServer().map(MinecraftServer::getPlayerList).map(PlayerList::getPlayers).map(players -> {
             List<UUID> list = new ArrayList<>(players.size());
-            for (ServerPlayer player : players) {
+            for (ServerPlayerEntity player : players) {
                 list.add(player.getGameProfile().getId());
             }
             return list;

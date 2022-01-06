@@ -35,8 +35,8 @@ import me.lucko.luckperms.forge.ForgeSenderFactory;
 import me.lucko.luckperms.forge.LPForgePlugin;
 import me.lucko.luckperms.forge.event.ConnectionEvent;
 import net.kyori.adventure.text.Component;
-import net.minecraft.Util;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.util.Util;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -95,7 +95,7 @@ public class ForgeConnectionListener extends AbstractConnectionListener {
 
     @SubscribeEvent
     public void onPlayerLoadFromFile(PlayerEvent.LoadFromFile event) {
-        ServerPlayer player = (ServerPlayer) event.getPlayer();
+        ServerPlayerEntity player = (ServerPlayerEntity) event.getPlayer();
         GameProfile profile = player.getGameProfile();
 
         if (this.plugin.getConfiguration().get(ConfigKeys.DEBUG_LOGINS)) {
@@ -152,7 +152,7 @@ public class ForgeConnectionListener extends AbstractConnectionListener {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        ServerPlayer player = (ServerPlayer) event.getPlayer();
+        ServerPlayerEntity player = (ServerPlayerEntity) event.getPlayer();
 
         this.plugin.getContextManager().unregister(player);
         handleDisconnect(player.getGameProfile().getId());
