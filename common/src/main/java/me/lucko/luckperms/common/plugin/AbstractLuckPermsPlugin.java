@@ -255,6 +255,9 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
             this.fileWatcher.close();
         }
 
+        // shutdown okhttp
+        this.bytebin.shutdown();
+
         // unregister api
         ApiRegistrationUtil.unregisterProvider();
 

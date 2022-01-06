@@ -31,6 +31,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class AbstractHttpClient {
 
@@ -50,5 +51,16 @@ public class AbstractHttpClient {
             throw new UnsuccessfulRequestException(response);
         }
         return response;
+    }
+
+    public void shutdown() {
+        try {
+            this.okHttp.dispatcher().executorService().shutdown();
+            if (this.okHttp.dispatcher().executorService().awaitTermination(1L, TimeUnit.MINUTES)) {
+                this.okHttp.connectionPool().evictAll();
+            }
+        } catch (InterruptedException ex) {
+            ex.printStackTrace();
+        }
     }
 }
