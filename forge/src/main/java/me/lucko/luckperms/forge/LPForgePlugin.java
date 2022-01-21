@@ -48,6 +48,7 @@ import me.lucko.luckperms.forge.listeners.ForgeCommandListUpdater;
 import me.lucko.luckperms.forge.listeners.ForgeConnectionListener;
 import me.lucko.luckperms.forge.listeners.ForgePlatformListener;
 import me.lucko.luckperms.forge.messaging.ForgeMessagingFactory;
+import me.lucko.luckperms.forge.service.ForgePermissionHandler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.luckperms.api.LuckPerms;
@@ -56,6 +57,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.management.PlayerList;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.ModContainer;
+import net.minecraftforge.server.permission.PermissionAPI;
 
 import java.util.Optional;
 import java.util.Set;
@@ -166,6 +168,8 @@ public class LPForgePlugin extends AbstractLuckPermsPlugin {
         if (getConfiguration().get(ConfigKeys.UPDATE_CLIENT_COMMAND_LIST)) {
             getApiProvider().getEventBus().subscribe(new ForgeCommandListUpdater(this));
         }
+
+        PermissionAPI.setPermissionHandler(new ForgePermissionHandler(this));
     }
 
     @Override

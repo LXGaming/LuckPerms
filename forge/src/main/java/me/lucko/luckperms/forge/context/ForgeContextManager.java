@@ -93,9 +93,13 @@ public class ForgeContextManager extends ContextManager<ServerPlayerEntity, Serv
     }
 
     public ForgeUser getUser(ServerPlayerEntity player) {
-        ForgeUser user = this.users.get(player.getUUID());
+        return getUser(player.getUUID());
+    }
+
+    public ForgeUser getUser(UUID uniqueId) {
+        ForgeUser user = this.users.get(uniqueId);
         if (user == null) {
-            throw new IllegalStateException("User " + player.getUUID() + " is not registered");
+            throw new IllegalStateException("User " + uniqueId + " is not registered");
         }
 
         return user;
