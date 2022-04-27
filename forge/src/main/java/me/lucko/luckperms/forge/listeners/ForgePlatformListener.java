@@ -25,6 +25,7 @@
 
 package me.lucko.luckperms.forge.listeners;
 
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.context.CommandContextBuilder;
@@ -103,7 +104,8 @@ public class ForgePlatformListener {
             }
 
             event.setException(CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownCommand().createWithContext(parseResults.getReader()));
-            break;
+            event.setCanceled(true);
+            return;
         }
 
         event.setParseResults(parseResults);
