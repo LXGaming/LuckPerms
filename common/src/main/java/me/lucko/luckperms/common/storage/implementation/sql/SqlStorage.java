@@ -34,12 +34,12 @@ import me.lucko.luckperms.common.actionlog.LoggedAction;
 import me.lucko.luckperms.common.bulkupdate.BulkUpdate;
 import me.lucko.luckperms.common.bulkupdate.BulkUpdateStatistics;
 import me.lucko.luckperms.common.bulkupdate.PreparedStatementBuilder;
+import me.lucko.luckperms.common.config.ConfigKeys;
 import me.lucko.luckperms.common.context.serializer.ContextSetJsonSerializer;
 import me.lucko.luckperms.common.model.Group;
 import me.lucko.luckperms.common.model.Track;
 import me.lucko.luckperms.common.model.User;
 import me.lucko.luckperms.common.model.manager.group.GroupManager;
-import me.lucko.luckperms.common.model.nodemap.MutateResult;
 import me.lucko.luckperms.common.node.factory.NodeBuilders;
 import me.lucko.luckperms.common.node.matcher.ConstraintNodeMatcher;
 import me.lucko.luckperms.common.plugin.LuckPermsPlugin;
@@ -47,10 +47,12 @@ import me.lucko.luckperms.common.storage.implementation.StorageImplementation;
 import me.lucko.luckperms.common.storage.implementation.sql.connection.ConnectionFactory;
 import me.lucko.luckperms.common.storage.misc.NodeEntry;
 import me.lucko.luckperms.common.storage.misc.PlayerSaveResultImpl;
+import me.lucko.luckperms.common.util.Difference;
 import me.lucko.luckperms.common.util.Uuids;
 import me.lucko.luckperms.common.util.gson.GsonProvider;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.luckperms.api.actionlog.Action;
 import net.luckperms.api.context.DefaultContextKeys;
 import net.luckperms.api.context.MutableContextSet;
@@ -84,6 +86,7 @@ public class SqlStorage implements StorageImplementation {
     private static final Type LIST_STRING_TYPE = new TypeToken<List<String>>(){}.getType();
 
     private static final String USER_PERMISSIONS_SELECT = "SELECT id, permission, value, server, world, expiry, contexts FROM '{prefix}user_permissions' WHERE uuid=?";
+    private static final String USER_PERMISSIONS_SELECT_MULTIPLE = "SELECT uuid, id, permission, value, server, world, expiry, contexts FROM '{prefix}user_permissions' WHERE ";
     private static final String USER_PERMISSIONS_DELETE_SPECIFIC = "DELETE FROM '{prefix}user_permissions' WHERE id=?";
     private static final String USER_PERMISSIONS_DELETE_SPECIFIC_PROPS = "DELETE FROM '{prefix}user_permissions' WHERE uuid=? AND permission=? AND value=? AND server=? AND world=? AND expiry=? AND contexts=?";
     private static final String USER_PERMISSIONS_DELETE = "DELETE FROM '{prefix}user_permissions' WHERE uuid=?";
@@ -99,6 +102,7 @@ public class SqlStorage implements StorageImplementation {
     private static final String PLAYER_SELECT_ALL_UUIDS_BY_USERNAME = "SELECT uuid FROM '{prefix}players' WHERE username=? AND NOT uuid=?";
     private static final String PLAYER_DELETE_ALL_UUIDS_BY_USERNAME = "DELETE FROM '{prefix}players' WHERE username=? AND NOT uuid=?";
     private static final String PLAYER_SELECT_BY_UUID = "SELECT username, primary_group FROM '{prefix}players' WHERE uuid=? LIMIT 1";
+    private static final String PLAYER_SELECT_BY_UUID_MULTIPLE = "SELECT uuid, username, primary_group FROM '{prefix}players' WHERE ";
     private static final String PLAYER_SELECT_PRIMARY_GROUP_BY_UUID = "SELECT primary_group FROM '{prefix}players' WHERE uuid=? LIMIT 1";
     private static final String PLAYER_UPDATE_PRIMARY_GROUP_BY_UUID = "UPDATE '{prefix}players' SET primary_group=? WHERE uuid=?";
 
@@ -228,7 +232,17 @@ public class SqlStorage implements StorageImplementation {
 
     @Override
     public Map<Component, Component> getMeta() {
-        return this.connectionFactory.getMeta();
+        Map<Component, Component> meta = this.connectionFactory.getMeta();
+
+        String tablePrefix = this.plugin.getConfiguration().get(ConfigKeys.SQL_TABLE_PREFIX);
+        if (!tablePrefix.equals("luckperms_")) {
+            meta.put(
+                    Component.translatable("luckperms.command.info.storage.meta.table-prefix-key"),
+                    Component.text(tablePrefix, NamedTextColor.WHITE)
+            );
+        }
+
+        return meta;
     }
 
     @Override
@@ -319,16 +333,38 @@ public class SqlStorage implements StorageImplementation {
 
     @Override
     public User loadUser(UUID uniqueId, String username) throws SQLException {
-        User user = this.plugin.getUserManager().getOrMake(uniqueId, username);
-
         List<Node> nodes;
         SqlPlayerData playerData;
 
         try (Connection c = this.connectionFactory.getConnection()) {
-            nodes = selectUserPermissions(c, user.getUniqueId());
-            playerData = selectPlayerData(c, user.getUniqueId());
+            nodes = selectUserPermissions(c, uniqueId);
+            playerData = selectPlayerData(c, uniqueId);
         }
 
+        return createUser(uniqueId, username, playerData, nodes, true);
+    }
+
+    @Override
+    public Map<UUID, User> loadUsers(Set<UUID> uniqueIds) throws Exception {
+        Map<UUID, List<Node>> nodesMap;
+        Map<UUID, SqlPlayerData> playerDataMap;
+
+        try (Connection c = this.connectionFactory.getConnection()) {
+            nodesMap = selectUserPermissions(c, uniqueIds);
+            playerDataMap = selectPlayerData(c, uniqueIds);
+        }
+
+        Map<UUID, User> users = new HashMap<>();
+        for (UUID uniqueId : uniqueIds) {
+            SqlPlayerData playerData = playerDataMap.get(uniqueId);
+            List<Node> nodes = nodesMap.get(uniqueId);
+            users.put(uniqueId, createUser(uniqueId, null, playerData, nodes, false));
+        }
+        return users;
+    }
+
+    private User createUser(UUID uniqueId, String username, SqlPlayerData playerData, List<Node> nodes, boolean saveAfterAudit) throws SQLException {
+        User user = this.plugin.getUserManager().getOrMake(uniqueId, username);
         if (playerData != null) {
             if (playerData.primaryGroup != null) {
                 user.getPrimaryGroup().setStoredValue(playerData.primaryGroup);
@@ -342,7 +378,7 @@ public class SqlStorage implements StorageImplementation {
         user.loadNodesFromStorage(nodes);
         this.plugin.getUserManager().giveDefaultIfNeeded(user);
 
-        if (user.auditTemporaryNodes()) {
+        if (user.auditTemporaryNodes() && saveAfterAudit) {
             saveUser(user);
         }
 
@@ -351,15 +387,15 @@ public class SqlStorage implements StorageImplementation {
 
     @Override
     public void saveUser(User user) throws SQLException {
-        MutateResult changes = user.normalData().exportChanges(results -> {
+        Difference<Node> changes = user.normalData().exportChanges(results -> {
             if (this.plugin.getUserManager().isNonDefaultUser(user)) {
                 return true;
             }
 
             // if the only change is adding the default node, we don't need to export
             if (results.getChanges().size() == 1) {
-                MutateResult.Change onlyChange = results.getChanges().iterator().next();
-                return !(onlyChange.getType() == MutateResult.ChangeType.ADD && this.plugin.getUserManager().isDefaultNode(onlyChange.getNode()));
+                Difference.Change<Node> onlyChange = results.getChanges().iterator().next();
+                return !(onlyChange.type() == Difference.ChangeType.ADD && this.plugin.getUserManager().isDefaultNode(onlyChange.value()));
             }
 
             return true;
@@ -480,7 +516,7 @@ public class SqlStorage implements StorageImplementation {
 
     @Override
     public void saveGroup(Group group) throws SQLException {
-        MutateResult changes = group.normalData().exportChanges(c -> true);
+        Difference<Node> changes = group.normalData().exportChanges(c -> true);
 
         if (!changes.isEmpty()) {
             try (Connection c = this.connectionFactory.getConnection()) {
@@ -864,6 +900,58 @@ public class SqlStorage implements StorageImplementation {
                 }
             }
         }
+    }
+
+    private Map<UUID, List<Node>> selectUserPermissions(Connection c, Set<UUID> users) throws SQLException {
+        Map<UUID, List<Node>> map = new HashMap<>();
+        for (UUID uuid : users) {
+            map.put(uuid, new ArrayList<>());
+        }
+
+        try (Statement s = c.createStatement()) {
+            String sql = createUserSelectWhereClause(USER_PERMISSIONS_SELECT_MULTIPLE, users);
+            try (ResultSet rs = s.executeQuery(sql)) {
+                while (rs.next()) {
+                    UUID uuid = UUID.fromString(rs.getString("uuid"));
+                    Node node = readNode(rs);
+                    if (node != null) {
+                        map.get(uuid).add(readNode(rs));
+                    }
+                }
+            }
+        }
+
+        return map;
+    }
+
+    private Map<UUID, SqlPlayerData> selectPlayerData(Connection c, Set<UUID> users) throws SQLException {
+        Map<UUID, SqlPlayerData> map = new HashMap<>();
+
+        try (Statement s = c.createStatement()) {
+            String sql = createUserSelectWhereClause(PLAYER_SELECT_BY_UUID_MULTIPLE, users);
+            try (ResultSet rs = s.executeQuery(sql)) {
+                while (rs.next()) {
+                    UUID uuid = UUID.fromString(rs.getString("uuid"));
+                    SqlPlayerData data = new SqlPlayerData(
+                            rs.getString("primary_group"),
+                            rs.getString("username")
+                    );
+                    map.put(uuid, data);
+                }
+            }
+        }
+
+        return map;
+    }
+
+    private String createUserSelectWhereClause(String baseQuery, Set<UUID> users) {
+        String param = users.stream()
+                .map(uuid -> "'" + uuid + "'")
+                .collect(Collectors.joining(",", "uuid IN (", ")"));
+
+        // we don't want to use preparedstatements because the parameter length is variable
+        // safe to do string concat/replacement because the UUID.toString value isn't injectable
+        return this.statementProcessor.apply(baseQuery) + param;
     }
 
     private void deleteUser(Connection c, UUID user) throws SQLException {

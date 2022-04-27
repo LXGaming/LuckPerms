@@ -68,10 +68,12 @@ import net.luckperms.api.node.Node;
 import net.luckperms.api.node.NodeBuilder;
 
 import org.bson.Document;
+import org.bson.UuidRepresentation;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -110,8 +112,11 @@ public class MongoStorage implements StorageImplementation {
 
     @Override
     public void init() {
+        MongoClientOptions.Builder options = MongoClientOptions.builder()
+                .uuidRepresentation(UuidRepresentation.JAVA_LEGACY);
+
         if (!Strings.isNullOrEmpty(this.connectionUri)) {
-            this.mongoClient = new MongoClient(new MongoClientURI(this.connectionUri));
+            this.mongoClient = new MongoClient(new MongoClientURI(this.connectionUri, options));
         } else {
             MongoCredential credential = null;
             if (!Strings.isNullOrEmpty(this.configuration.getUsername())) {
@@ -128,9 +133,9 @@ public class MongoStorage implements StorageImplementation {
             ServerAddress address = new ServerAddress(host, port);
 
             if (credential == null) {
-                this.mongoClient = new MongoClient(address);
+                this.mongoClient = new MongoClient(address, options.build());
             } else {
-                this.mongoClient = new MongoClient(address, credential, MongoClientOptions.builder().build());
+                this.mongoClient = new MongoClient(address, credential, options.build());
             }
         }
         
@@ -167,6 +172,13 @@ public class MongoStorage implements StorageImplementation {
                 Component.translatable("luckperms.command.info.storage.meta.connected-key"),
                 Message.formatBoolean(success)
         );
+
+        if (!this.prefix.isEmpty()) {
+            meta.put(
+                    Component.translatable("luckperms.command.info.storage.meta.collection-prefix-key"),
+                    Component.text(this.prefix, NamedTextColor.WHITE)
+            );
+        }
 
         return meta;
     }
@@ -326,6 +338,16 @@ public class MongoStorage implements StorageImplementation {
             }
         }
         return user;
+    }
+
+    @Override
+    public Map<UUID, User> loadUsers(Set<UUID> uniqueIds) throws Exception {
+        // make this a bulk search?
+        Map<UUID, User> map = new HashMap<>();
+        for (UUID uniqueId : uniqueIds) {
+            map.put(uniqueId, loadUser(uniqueId, null));
+        }
+        return map;
     }
 
     @Override

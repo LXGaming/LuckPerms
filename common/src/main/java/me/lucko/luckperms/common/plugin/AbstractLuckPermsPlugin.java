@@ -32,6 +32,9 @@ import me.lucko.luckperms.common.calculator.CalculatorFactory;
 import me.lucko.luckperms.common.config.ConfigKeys;
 import me.lucko.luckperms.common.config.LuckPermsConfiguration;
 import me.lucko.luckperms.common.config.generic.adapter.ConfigurationAdapter;
+import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter;
+import me.lucko.luckperms.common.config.generic.adapter.MultiConfigurationAdapter;
+import me.lucko.luckperms.common.config.generic.adapter.SystemPropertyConfigAdapter;
 import me.lucko.luckperms.common.context.calculator.ConfigurationContextCalculator;
 import me.lucko.luckperms.common.dependencies.Dependency;
 import me.lucko.luckperms.common.dependencies.DependencyManager;
@@ -40,6 +43,7 @@ import me.lucko.luckperms.common.event.EventDispatcher;
 import me.lucko.luckperms.common.event.gen.GeneratedEventClass;
 import me.lucko.luckperms.common.extension.SimpleExtensionManager;
 import me.lucko.luckperms.common.http.BytebinClient;
+import me.lucko.luckperms.common.http.BytesocksClient;
 import me.lucko.luckperms.common.inheritance.InheritanceGraphFactory;
 import me.lucko.luckperms.common.locale.Message;
 import me.lucko.luckperms.common.locale.TranslationManager;
@@ -57,7 +61,8 @@ import me.lucko.luckperms.common.tasks.ExpireTemporaryTask;
 import me.lucko.luckperms.common.tasks.SyncTask;
 import me.lucko.luckperms.common.treeview.PermissionRegistry;
 import me.lucko.luckperms.common.verbose.VerboseHandler;
-import me.lucko.luckperms.common.webeditor.WebEditorSessionStore;
+import me.lucko.luckperms.common.webeditor.socket.WebEditorSocket;
+import me.lucko.luckperms.common.webeditor.store.WebEditorStore;
 
 import net.luckperms.api.LuckPerms;
 
@@ -89,8 +94,10 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
     private PermissionRegistry permissionRegistry;
     private LogDispatcher logDispatcher;
     private LuckPermsConfiguration configuration;
+    private OkHttpClient httpClient;
     private BytebinClient bytebin;
-    private WebEditorSessionStore webEditorSessionStore;
+    private BytesocksClient bytesocks;
+    private WebEditorStore webEditorStore;
     private TranslationRepository translationRepository;
     private FileWatcher fileWatcher = null;
     private Storage storage;
@@ -128,15 +135,21 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
 
         // load configuration
         getLogger().info("Loading configuration...");
-        this.configuration = new LuckPermsConfiguration(this, provideConfigurationAdapter());
+        ConfigurationAdapter configFileAdapter = provideConfigurationAdapter();
+        this.configuration = new LuckPermsConfiguration(this, new MultiConfigurationAdapter(this,
+                new SystemPropertyConfigAdapter(this),
+                new EnvironmentVariableConfigAdapter(this),
+                configFileAdapter
+        ));
 
         // setup a bytebin instance
-        OkHttpClient httpClient = new OkHttpClient.Builder()
+        this.httpClient = new OkHttpClient.Builder()
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build();
 
-        this.bytebin = new BytebinClient(httpClient, getConfiguration().get(ConfigKeys.BYTEBIN_URL), "luckperms");
-        this.webEditorSessionStore = new WebEditorSessionStore();
+        this.bytebin = new BytebinClient(this.httpClient, getConfiguration().get(ConfigKeys.BYTEBIN_URL), "luckperms");
+        this.bytesocks = new BytesocksClient(this.httpClient, getConfiguration().get(ConfigKeys.BYTESOCKS_HOST), "luckperms/editor");
+        this.webEditorStore = new WebEditorStore(this);
 
         // init translation repo and update bundle files
         this.translationRepository = new TranslationRepository(this);
@@ -191,6 +204,7 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
 
         // register with the LP API
         this.apiProvider = new LuckPermsApiProvider(this);
+        this.apiProvider.ensureApiWasLoadedByPlugin();
         this.eventDispatcher = new EventDispatcher(provideEventBus(this.apiProvider));
         getBootstrap().getScheduler().executeAsync(GeneratedEventClass::preGenerate);
         ApiRegistrationUtil.registerProvider(this.apiProvider);
@@ -230,6 +244,13 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
         // cancel delayed/repeating tasks
         getBootstrap().getScheduler().shutdownScheduler();
 
+        // close web editor sockets
+        for (WebEditorSocket socket : this.webEditorStore.sockets().getSockets()) {
+            if (!socket.isClosed()) {
+                socket.close();
+            }
+        }
+
         // shutdown permission vault and verbose handler tasks
         this.permissionRegistry.close();
         this.verboseHandler.close();
@@ -263,6 +284,10 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
 
         // shutdown async executor pool
         getBootstrap().getScheduler().shutdownExecutor();
+
+        // shutdown okhttp
+        this.httpClient.dispatcher().executorService().shutdown();
+        this.httpClient.connectionPool().evictAll();
 
         // close classpath appender
         getBootstrap().getClassPathAppender().close();
@@ -423,8 +448,13 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
     }
 
     @Override
-    public WebEditorSessionStore getWebEditorSessionStore() {
-        return this.webEditorSessionStore;
+    public BytesocksClient getBytesocks() {
+        return this.bytesocks;
+    }
+
+    @Override
+    public WebEditorStore getWebEditorStore() {
+        return this.webEditorStore;
     }
 
     @Override
